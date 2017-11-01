@@ -18,6 +18,8 @@
 - (id)initWithRouterParams:(NSDictionary *)params {
   if ((self = [self initWithNibName:nil bundle:nil])) {
     self.title = @"User";
+    NSLog(@"name: %@",[params objectForKey:@"name"]); //chenyu
+    NSLog(@"age: %@",[params objectForKey:@"age"]);   //28
   }
   return self;
 }
@@ -77,7 +79,7 @@
 }
 
 - (void)tappedUser:(id)sender {
-  [[Routable sharedRouter] open:@"user"];
+    [[Routable sharedRouter] open:@"user/chenyu/28"];
 }
 
 @end
@@ -91,14 +93,14 @@
     self.window.backgroundColor = [UIColor whiteColor];
 
     UINavigationController *nav = [[UINavigationController alloc] initWithNibName:nil bundle:nil];
-    [[Routable sharedRouter] map:@"user" toController:[UserController class]];
+    [[Routable sharedRouter] map:@"user/:name/:age" toController:[UserController class]];
     [[Routable sharedRouter] map:@"modal" toController:[ModalController class] withOptions:[[UPRouterOptions modal] withPresentationStyle:UIModalPresentationFormSheet]];
     [[Routable sharedRouter] setNavigationController:nav];
 
     [self.window setRootViewController:nav];
     [self.window makeKeyAndVisible];
 
-    [[Routable sharedRouter] open:@"user"];
+    [[Routable sharedRouter] open:@"user/chenyu/28"];
     return YES;
 }
 

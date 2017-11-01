@@ -174,14 +174,17 @@ typedef void (^RouterOpenCallback)(NSDictionary *params);
 
 /**
  The property determining if the mapped `UIViewController` should be opened modally or pushed in the navigation stack.
+ //是否是模态视图
  */
 @property (readwrite, nonatomic, getter=isModal) BOOL modal;
 /**
  The property determining the `UIModalPresentationStyle` assigned to the mapped `UIViewController` instance. This is always assigned, regardless of whether or not `modal` is true.
+ //VC 显示的样式
  */
 @property (readwrite, nonatomic) UIModalPresentationStyle presentationStyle;
 /**
  The property determining the `UIModalTransitionStyle` assigned to the mapped `UIViewController` instance. This is always assigned, regardless of whether or not `modal` is true.
+ //VC 出现时的动画
  */
 @property (readwrite, nonatomic) UIModalTransitionStyle transitionStyle;
 /**
@@ -190,6 +193,7 @@ typedef void (^RouterOpenCallback)(NSDictionary *params);
 @property (readwrite, nonatomic, strong) NSDictionary *defaultParams;
 /**
  The property determining if the mapped `UIViewController` instance should be set as the root view controller of the router's `UINavigationController` instance.
+ //是否是根视图
  */
 @property (readwrite, nonatomic, assign) BOOL shouldOpenAsRootViewController;
 
@@ -298,6 +302,7 @@ typedef void (^RouterOpenCallback)(NSDictionary *params);
 - (void)map:(NSString *)format toController:(Class)controllerClass;
 /**
  Map a URL format to an anonymous callback and `UPRouterOptions` options
+ //注册路由，里面添加了详细的注释。上面的方法最终会调用这个方法，options 传入的是 nil
  @param format A URL format (i.e. "users/:id" or "logout")
  @param controllerClass The `UIViewController` `Class` which will be instanstiated when the URL is triggered in `open:`
  @param options Configuration for the route, such as modal settings
@@ -335,6 +340,7 @@ typedef void (^RouterOpenCallback)(NSDictionary *params);
 
 /**
  Triggers the appropriate functionality for a mapped URL, such as an anonymous function or opening a `UIViewController`
+ //路由跳转，主要分析的方法。上面两个方法最终都会调用这个方法。
  @param url The URL being opened (i.e. "users/16")
  @param animated Whether or not `UIViewController` transitions are animated.
  @param extraParams more paramters to pass in while opening a `UIViewController`; take priority over route-specific default parameters
@@ -357,12 +363,14 @@ typedef void (^RouterOpenCallback)(NSDictionary *params);
 
 /**
  A singleton instance of `UPRouter` which can be accessed anywhere in the app.
+ //提供单例方法，用来创建路由类
  @return A singleton instance of `UPRouter`.
  */
 + (instancetype)sharedRouter;
 
 /**
  A new instance of `UPRouter`, in case you want to use multiple routers in your app.
+ //另一种创建路由的方式，一般不推荐，不是单例。
  @remarks Unnecessary method; can use [[Routable alloc] init] instead
  @return A new instance of `UPRouter`.
  */

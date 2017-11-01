@@ -75,8 +75,8 @@
 
 @interface UPRouterOptions ()
 
-@property (readwrite, nonatomic, strong) Class openClass;
-@property (readwrite, nonatomic, copy) RouterOpenCallback callback;
+@property (readwrite, nonatomic, strong) Class openClass;           //注册的类
+@property (readwrite, nonatomic, copy) RouterOpenCallback callback; //block 回调
 @end
 
 @implementation UPRouterOptions
@@ -185,10 +185,10 @@
 
 // Map of URL format NSString -> RouterOptions
 // i.e. "users/:id"
-@property (readwrite, nonatomic, strong) NSMutableDictionary *routes;
+@property (readwrite, nonatomic, strong) NSMutableDictionary *routes;       // 存储注册的路由
 // Map of final URL NSStrings -> RouterParams
 // i.e. "users/16"
-@property (readwrite, nonatomic, strong) NSMutableDictionary *cachedRoutes;
+@property (readwrite, nonatomic, strong) NSMutableDictionary *cachedRoutes; // 缓存已跳转过的路由
 
 @end
 
@@ -257,9 +257,11 @@
     animated:(BOOL)animated
  extraParams:(NSDictionary *)extraParams
 {
+  //获取路由跳转相关的参数，往下滑动，先看怎么获取的数据，看完下面的方法再回来看这个方法
   RouterParams *params = [self routerParamsForUrl:url extraParams: extraParams];
   UPRouterOptions *options = params.routerOptions;
   
+  //好了，拿到数据了，开始跳转。先判断是否有回调，如果有的话，则去执行 block
   if (options.callback) {
     RouterOpenCallback callback = options.callback;
     callback([params controllerParams]);
@@ -276,12 +278,16 @@
                                  userInfo:nil];
   }
   
+  //获取将要跳转的 VC，并且将我们传递的数据以字典的形式，传递给这个 VC
+  //controllerForRouterParams 这个方法比较简单，打断点进去看看就 OK 了。
   UIViewController *controller = [self controllerForRouterParams:params];
   
+  //判断当前是否有 presented 的 ViewController，有的话要 dismiss，因为接下来要跳转或者 presentViewController
   if (self.navigationController.presentedViewController) {
     [self.navigationController dismissViewControllerAnimated:animated completion:nil];
   }
   
+  //是否是以模态的方式弹出 ViewController
   if ([options isModal]) {
     if ([controller.class isSubclassOfClass:UINavigationController.class]) {
       [self.navigationController presentViewController:controller
@@ -298,6 +304,7 @@
     }
   }
   else if (options.shouldOpenAsRootViewController) {
+    //设置根视图
     [self.navigationController setViewControllers:@[controller] animated:animated];
   }
   else {
@@ -336,33 +343,42 @@
                                  userInfo:nil];
   }
   
+  //如果缓存中已经有了（证明之前已经跳转过这个 VC），并且传递的参数没有变化。这里需要注意了，如果传递的参数你也不确定是不是没变化，最好给 extraParams 给个值，这样就不会走缓存了否则可能传递的数据变了，但是走的还是之前的缓存。如果 VC 之间不要传递数据，不用考虑这个问题
   if ([self.cachedRoutes objectForKey:url] && !extraParams) {
     return [self.cachedRoutes objectForKey:url];
   }
   
   NSArray *givenParts = url.pathComponents;
   NSArray *legacyParts = [url componentsSeparatedByString:@"/"];
+  //这里判断传入的路由路径是否正确，如果传入这样的 "iOS/app//first" 路径，则会警告。也许你的路由路径是"iOS/app"，这样写你就少传了一个实参
   if ([legacyParts count] != [givenParts count]) {
     NSLog(@"Routable Warning - your URL %@ has empty path components - this will throw an error in an upcoming release", url);
     givenParts = legacyParts;
   }
   
   __block RouterParams *openParams = nil;
+  //使用枚举的方式去匹配，这里不能从 self.routes 中通过 [self.routes objectForKey:@"key"] 的方式获取，因为注册的时候，你后面添加的是参数（形参），在跳转的时候传递的是数据（实参）。这里也就是为什么需要缓存的原因了，每次跳转都要枚举这个字典，缓存了以后时间复杂度直接降到了 O(1)。
   [self.routes enumerateKeysAndObjectsUsingBlock:
    ^(NSString *routerUrl, UPRouterOptions *routerOptions, BOOL *stop) {
-     
-     NSArray *routerParts = [routerUrl pathComponents];
-     if ([routerParts count] == [givenParts count]) {
+     //routerUrl 是枚举到的 key，也是当时注册路由时添加进去的 url，routerOptions 是枚举到的 value
        
+     NSArray *routerParts = [routerUrl pathComponents];
+     //判断注册的路由地址和跳转的带参数的地址是否一致，最简单的办法就是判断他们包含的元素个数是否一致，如果一致，再做更详细的判断
+     if ([routerParts count] == [givenParts count]) {
+       //如果个数一致，再判断是否匹配
        NSDictionary *givenParams = [self paramsForUrlComponents:givenParts routerUrlComponents:routerParts];
        if (givenParams) {
+         //givenParams 存储的是路由地址中给的数据，再将 extraParams 一起传入 RouterParams，创建 RouterParams 的对象。
          openParams = [[RouterParams alloc] initWithRouterOptions:routerOptions openParams:givenParams extraParams: extraParams];
+         //结束遍历
          *stop = YES;
        }
      }
    }];
   
+  //如果没有匹配到路由
   if (!openParams) {
+    //用户设置了忽略异常，直接返回 nil，否则会走 @throw
     if (_ignoresExceptions) {
       return nil;
     }
@@ -370,6 +386,8 @@
                                    reason:[NSString stringWithFormat:ROUTE_NOT_FOUND_FORMAT, url]
                                  userInfo:nil];
   }
+ 
+  //将我们辛辛苦苦封装好的路由相关的所有数据缓存起来，下次在走这个 url 的时候，直接取缓存中的数据，这就是为什么要缓存了。除非你传递的参数变了，那么一定传给 extraParams，相关方法检测到 extraParams 不为空，会重新组装数据。
   [self.cachedRoutes setObject:openParams forKey:url];
   return openParams;
 }
@@ -378,6 +396,7 @@
   return [self routerParamsForUrl:url extraParams: nil];
 }
 
+//判断注册的路由和跳转的路由是否一致
 - (NSDictionary *)paramsForUrlComponents:(NSArray *)givenUrlComponents
                      routerUrlComponents:(NSArray *)routerUrlComponents {
   
@@ -386,11 +405,14 @@
    ^(NSString *routerComponent, NSUInteger idx, BOOL *stop) {
      
      NSString *givenComponent = givenUrlComponents[idx];
+     //判断是否是形参，所以在注册路由时，一定要注意，参数以:开始，否则会当成路径字符串
      if ([routerComponent hasPrefix:@":"]) {
+       //去除参数的:，然后将参数名作为 key，将对应的 givenComponent 作为值存入字典中，所以在调用路由的时候，传递参数（实参）顺序要一致，否则参数就错乱了
        NSString *key = [routerComponent substringFromIndex:1];
        [params setObject:givenComponent forKey:key];
      }
      else if (![routerComponent isEqualToString:givenComponent]) {
+       //如果 routerComponent 不是参数名，并且路径不一致，则结束。结束后会去路由表中拿下一个路由来判断。
        params = nil;
        *stop = YES;
      }
